@@ -13,7 +13,7 @@ LAST_LT_FILE = 'last_lt.json'
 
 # === Konfiguration ===
 CHECK_INTERVAL = 10      # Sekunden zwischen Checks
-MAX_USERNAMES = 15       # Auktionen pro Check
+MAX_USERNAMES = 50       # Mehr Auktionen prüfen (um mehr neue zu finden)
 MIN_USERNAME_LENGTH = 5  # Mindestens 5 Zeichen
 MAX_USERNAME_LENGTH = 10 # Maximal 10 Zeichen
 
@@ -106,16 +106,18 @@ def process_events(state, new_events):
         amount = event["amount"]
         current = state.get(username, {"message_id": None, "amount": 0})
         
-        # Nur senden wenn: Menge höher ODER erste Nachricht
-        if amount > current["amount"] or current["message_id"] is None:
+        # NEUE LOGIK: Sende JEDES Gebot (nicht nur wenn höher)
+        # Das zeigt alle Aktivität auf dem Kanal
+        if amount >= current["amount"] or current["message_id"] is None:
             
-            # Alten Post löschen
+            # Alten Post löschen (falls vorhanden)
             if current.get("message_id"):
                 delete_message(current["message_id"])
                 time.sleep(0.5)  # Kleine Pause zwischen API-Calls
             
             # Neuen Post senden
             if event["type"] == "bid":
+                # Zeige auch an, wenn das Gebot gleich bleibt (für Aktivität)
                 text = f"""🔨 <b>New bid on username!</b>
 
 Amount: <b>{amount} TON</b>
@@ -146,7 +148,8 @@ No bids yet"""
 print(f"🚀 [{log_timestamp()}] Starte Auktions-Monitor...")
 print(f"⏱️  Prüf-Intervall: {CHECK_INTERVAL} Sekunden")
 print(f"📊 Überwache Usernames mit {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} Zeichen")
-print(f"🔝 Top {MAX_USERNAMES} Auktionen pro Check\n")
+print(f"🔝 Top {MAX_USERNAMES} Auktionen pro Check")
+print(f"📢 Zeige ALLE neuen/aktiven Gebote\n")
 
 iteration = 0
 
