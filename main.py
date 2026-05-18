@@ -9,10 +9,13 @@ TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHANNEL_ID')
 
 DATA_FILE = 'auctions_state.json'
+LAST_LT_FILE = 'last_lt.json'
 
 # === Konfiguration ===
-CHECK_INTERVAL = 30  # Alle 30 Sekunden prüfen (anpassen nach Bedarf)
-MAX_USERNAMES = 15   # Top 15 Auktionen
+CHECK_INTERVAL = 10      # Sekunden zwischen Checks
+MAX_USERNAMES = 15       # Auktionen pro Check
+MIN_USERNAME_LENGTH = 5  # Mindestens 5 Zeichen
+MAX_USERNAME_LENGTH = 10 # Maximal 10 Zeichen
 
 def load_state():
     if os.path.exists(DATA_FILE):
@@ -49,8 +52,15 @@ def send_message(text):
         print(f"⚠️ Fehler beim Senden der Nachricht: {e}")
         return {"ok": False}
 
-# === Echter Scraper mit ton-fragment ===
+def is_valid_username_length(username):
+    """Prüfe ob Username die Längen-Anforderungen erfüllt"""
+    # Entferne @ falls vorhanden
+    clean_name = username.lstrip('@')
+    length = len(clean_name)
+    return MIN_USERNAME_LENGTH <= length <= MAX_USERNAME_LENGTH
+
 def check_fragment():
+    """Scrape alle Auktionen von ton-fragment (ohne Längenbeschränkung)"""
     try:
         # Hole aktuelle Auctions (höchste Gebote)
         auctions = Usernames('auction')   # 'auction' = laufende Gebote
@@ -61,6 +71,11 @@ def check_fragment():
                 continue
                 
             username = f"@{item.get('username', '')}"
+            
+            # Prüfe Längenbeschränkung
+            if not is_valid_username_length(username):
+                continue
+            
             try:
                 amount = int(item.get('price', 0)) if item.get('price') else 0
             except:
@@ -130,7 +145,8 @@ No bids yet"""
 # === HAUPTPROGRAMM - ENDLOSSCHLEIFE ===
 print(f"🚀 [{log_timestamp()}] Starte Auktions-Monitor...")
 print(f"⏱️  Prüf-Intervall: {CHECK_INTERVAL} Sekunden")
-print(f"📊 Überwache Top {MAX_USERNAMES} Auktionen\n")
+print(f"📊 Überwache Usernames mit {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} Zeichen")
+print(f"🔝 Top {MAX_USERNAMES} Auktionen pro Check\n")
 
 iteration = 0
 
@@ -148,7 +164,7 @@ try:
         new_events = check_fragment()
         
         if new_events:
-            print(f"🔍 {len(new_events)} Auktionen gefunden")
+            print(f"🔍 {len(new_events)} Auktionen gefunden (nach Längen-Filter)")
             state, processed = process_events(state, new_events)
             print(f"📢 {processed} Benachrichtigungen gesendet")
         else:
